@@ -49,12 +49,12 @@ func run() error {
 	defer stop()
 
 	// Применяем миграции
-	if err := repository.RunMigrations(cfg.DatabaseURI); err != nil {
+	if err := repository.RunMigrations(cfg.DatabaseURI, cfg.Local); err != nil {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 
 	// Создаем подключение к БД
-	db, err := openDatabase(cfg.DatabaseURI)
+	db, err := openDatabase(cfg.DatabaseURI, cfg.Local)
 	if err != nil {
 		return err
 	}
@@ -119,13 +119,14 @@ func run() error {
 }
 
 // Создает подключение к БД
-func openDatabase(databaseURI string) (*sql.DB, error) {
+func openDatabase(databaseURI string, local bool) (*sql.DB, error) {
 	postgresConfig, err := pgx.ParseConfig(databaseURI)
 	if err != nil {
 		return nil, fmt.Errorf("parse database config: %w", err)
 	}
-	postgresConfig.RuntimeParams["search_path"] = repository.SchemaName()
-
+	if local {
+		postgresConfig.RuntimeParams["search_path"] = repository.SchemaName()
+	}
 	return stdlib.OpenDB(*postgresConfig), nil
 }
 

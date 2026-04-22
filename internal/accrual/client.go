@@ -33,7 +33,7 @@ func NewClient(baseURL string, httpClient *http.Client) *Client {
 
 // Получает состояние заказа во внешней системе начислений
 func (c *Client) GetOrderAccrual(ctx context.Context, orderNumber string) (models.AccrualOrder, error) {
-	url := c.baseURL + "/api/orders" + orderNumber
+	url := c.baseURL + "/api/orders/" + orderNumber
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return models.AccrualOrder{}, fmt.Errorf("create accrual request: %w", err)

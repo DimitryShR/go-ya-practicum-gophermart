@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -33,7 +34,10 @@ func NewClient(baseURL string, httpClient *http.Client) *Client {
 
 // Получает состояние заказа во внешней системе начислений
 func (c *Client) GetOrderAccrual(ctx context.Context, orderNumber string) (models.AccrualOrder, error) {
-	url := c.baseURL + "/api/orders/" + orderNumber
+	url, err := url.JoinPath(c.baseURL, "/api/orders", orderNumber)
+	if err != nil {
+		return models.AccrualOrder{}, fmt.Errorf("create url path for accrual request: %w", err)
+	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return models.AccrualOrder{}, fmt.Errorf("create accrual request: %w", err)

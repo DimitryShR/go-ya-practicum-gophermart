@@ -20,7 +20,6 @@ const (
 	defaultTokenTTL           = 72 * time.Hour
 	defaultPollInterval       = 2 * time.Second
 	defaultShutdownTimeout    = 10 * time.Second
-	defaultLocal              = false
 	defaultAccrualConcurrency = 5
 )
 
@@ -65,7 +64,6 @@ func defaultConfig() *config {
 		TokenTTL:           defaultTokenTTL,
 		PollInterval:       defaultPollInterval,
 		ShutdownTimeout:    defaultShutdownTimeout,
-		Local:              defaultLocal,
 		AccrualConcurrency: defaultAccrualConcurrency,
 	}
 }
@@ -160,7 +158,7 @@ func applyEnvBool(name string, dst *bool) error {
 		return nil
 	}
 
-	parsed, err := parseBool(strings.TrimSpace(value))
+	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
 	if err != nil {
 		return err
 	}
@@ -183,18 +181,6 @@ func applyEnvInt(name string, dst *int) error {
 
 	*dst = parsed
 	return nil
-}
-
-// Парсит строковое представление булевого значения
-func parseBool(value string) (bool, error) {
-	switch strings.ToLower(value) {
-	case "true", "1", "yes", "on":
-		return true, nil
-	case "false", "0", "no", "off":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid boolean value: %q", value)
-	}
 }
 
 // Приводит параметры к нормализованному виду

@@ -14,11 +14,14 @@ func TestConfigParseFlagsAndEnvPrecedence(t *testing.T) {
 		"-a", ":9000",
 		"-d", "postgres://flag-db",
 		"-r", "flag-accrual:8080",
+		"-log-level", "debug",
 		"-log-file", "test_gophermart.log",
 		"-j", "flag-secret",
 		"-jwt-ttl", "2h",
 		"-poll-interval", "7s",
 		"-shutdown-timeout", "15s",
+		"-acc-concurrency", "5",
+		"-local",
 	})
 	if err != nil {
 		t.Fatalf("parseFlags() returned error: %v", err)
@@ -27,11 +30,14 @@ func TestConfigParseFlagsAndEnvPrecedence(t *testing.T) {
 	t.Setenv("RUN_ADDRESS", ":9100")
 	t.Setenv("DATABASE_URI", "postgres://user:pass@env-db:5432/db")
 	t.Setenv("ACCRUAL_SYSTEM_ADDRESS", "env-accrual:8081")
+	t.Setenv("LOG_LEVEL", "info")
 	t.Setenv("LOG_FILENAME", "env-test_gophermart.log")
 	t.Setenv("JWT_SECRET", "env-secret")
 	t.Setenv("JWT_TTL", "3h")
 	t.Setenv("ACCRUAL_POLL_INTERVAL", "9s")
 	t.Setenv("SHUTDOWN_TIMEOUT", "25s")
+	t.Setenv("ACCRUAL_CONCURRENCY", "7")
+	t.Setenv("LOCAL", "true")
 
 	if err := cfg.applyEnv(); err != nil {
 		t.Fatalf("applyEnv() returned error: %v", err)
@@ -51,6 +57,9 @@ func TestConfigParseFlagsAndEnvPrecedence(t *testing.T) {
 	if cfg.AccrualSystemAddress != "http://env-accrual:8081" {
 		t.Fatalf("unexpected AccrualSystemAddress: %q", cfg.AccrualSystemAddress)
 	}
+	if cfg.LogLevel != "info" {
+		t.Fatalf("unexpected LogLevel: %s", cfg.LogLevel)
+	}
 	if cfg.LogFilename != "env-test_gophermart.log" {
 		t.Fatalf("unexpected LogFilename: %q", cfg.LogFilename)
 	}
@@ -65,6 +74,12 @@ func TestConfigParseFlagsAndEnvPrecedence(t *testing.T) {
 	}
 	if cfg.ShutdownTimeout != 25*time.Second {
 		t.Fatalf("unexpected ShutdownTimeout: %s", cfg.ShutdownTimeout)
+	}
+	if cfg.AccrualConcurrency != 7 {
+		t.Fatalf("unexpected AccrualConcurrency: %d", cfg.AccrualConcurrency)
+	}
+	if cfg.Local != true {
+		t.Fatalf("unexpected Local value: %t", cfg.Local)
 	}
 }
 

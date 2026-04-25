@@ -79,7 +79,7 @@ func run() error {
 
 	// Создаем клиент и сервис для обращения к внешнему accrual сервису
 	accrualClient := accrual.NewClient(cfg.AccrualSystemAddress, &http.Client{Timeout: 5 * time.Second})
-	processor := service.NewAccrualProcessor(store, accrualClient, cfg.PollInterval)
+	processor := service.NewAccrualProcessor(store, accrualClient, cfg.PollInterval, cfg.AccrualConcurrency)
 	// Запускаем обработчик
 	go processor.Run(rootCtx)
 

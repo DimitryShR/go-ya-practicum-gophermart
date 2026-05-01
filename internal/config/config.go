@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,12 +14,13 @@ import (
 )
 
 const (
-	defaultRunAddress      = ":8080"
-	defaultLogLevel        = "info"
-	defaultJWTSecret       = "gophermart-dev-secret"
-	defaultTokenTTL        = 72 * time.Hour
-	defaultPollInterval    = 2 * time.Second
-	defaultShutdownTimeout = 10 * time.Second
+	defaultRunAddress         = ":8080"
+	defaultLogLevel           = "info"
+	defaultJWTSecret          = "gophermart-dev-secret"
+	defaultTokenTTL           = 72 * time.Hour
+	defaultPollInterval       = 2 * time.Second
+	defaultShutdownTimeout    = 10 * time.Second
+	defaultAccrualConcurrency = 5
 )
 
 // Хранит конфигурацию сервиса
@@ -32,6 +34,8 @@ type config struct {
 	TokenTTL             time.Duration
 	PollInterval         time.Duration
 	ShutdownTimeout      time.Duration
+	Local                bool
+	AccrualConcurrency   int
 }
 
 // Создает конфигурацию приложения
@@ -54,12 +58,13 @@ func New() (*config, error) {
 
 func defaultConfig() *config {
 	return &config{
-		RunAddress:      defaultRunAddress,
-		LogLevel:        defaultLogLevel,
-		JWTSecret:       defaultJWTSecret,
-		TokenTTL:        defaultTokenTTL,
-		PollInterval:    defaultPollInterval,
-		ShutdownTimeout: defaultShutdownTimeout,
+		RunAddress:         defaultRunAddress,
+		LogLevel:           defaultLogLevel,
+		JWTSecret:          defaultJWTSecret,
+		TokenTTL:           defaultTokenTTL,
+		PollInterval:       defaultPollInterval,
+		ShutdownTimeout:    defaultShutdownTimeout,
+		AccrualConcurrency: defaultAccrualConcurrency,
 	}
 }
 
@@ -77,6 +82,8 @@ func (c *config) parseFlags(args []string) error {
 	fs.DurationVar(&c.TokenTTL, "jwt-ttl", c.TokenTTL, "JWT token lifetime")
 	fs.DurationVar(&c.PollInterval, "poll-interval", c.PollInterval, "Accrual polling interval")
 	fs.DurationVar(&c.ShutdownTimeout, "shutdown-timeout", c.ShutdownTimeout, "Graceful shutdown timeout")
+	fs.BoolVar(&c.Local, "local", c.Local, "Run in local mode")
+	fs.IntVar(&c.AccrualConcurrency, "acc-concurrency", c.AccrualConcurrency, "Accrual worker pool concurrency")
 
 	if err := fs.Parse(args); err != nil {
 		// Если запросили справку --help
@@ -100,7 +107,7 @@ func (c *config) applyEnv() error {
 	applyEnvString("RUN_ADDRESS", &c.RunAddress)
 	applyEnvString("DATABASE_URI", &c.DatabaseURI)
 	applyEnvString("ACCRUAL_SYSTEM_ADDRESS", &c.AccrualSystemAddress)
-	applyEnvString("LOG_LEVEL", &c.LogFilename)
+	applyEnvString("LOG_LEVEL", &c.LogLevel)
 	applyEnvString("LOG_FILENAME", &c.LogFilename)
 	applyEnvString("JWT_SECRET", &c.JWTSecret)
 	if err := applyEnvDuration("JWT_TTL", &c.TokenTTL); err != nil {
@@ -112,7 +119,12 @@ func (c *config) applyEnv() error {
 	if err := applyEnvDuration("SHUTDOWN_TIMEOUT", &c.ShutdownTimeout); err != nil {
 		errs = append(errs, fmt.Errorf("SHUTDOWN_TIMEOUT: %w", err))
 	}
-
+	if err := applyEnvBool("LOCAL", &c.Local); err != nil {
+		errs = append(errs, fmt.Errorf("LOCAL: %w", err))
+	}
+	if err := applyEnvInt("ACCRUAL_CONCURRENCY", &c.AccrualConcurrency); err != nil {
+		errs = append(errs, fmt.Errorf("ACCRUAL_CONCURRENCY: %w", err))
+	}
 	return errors.Join(errs...)
 }
 
@@ -131,6 +143,38 @@ func applyEnvDuration(name string, dst *time.Duration) error {
 	}
 
 	parsed, err := time.ParseDuration(strings.TrimSpace(value))
+	if err != nil {
+		return err
+	}
+
+	*dst = parsed
+	return nil
+}
+
+// Ищет переменную окружения типа bool по имени и устанавливает ее значение в dst
+func applyEnvBool(name string, dst *bool) error {
+	value, ok := os.LookupEnv(name)
+	if !ok {
+		return nil
+	}
+
+	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		return err
+	}
+
+	*dst = parsed
+	return nil
+}
+
+// Ищем переменную окружения типа int по имени и устанавливаем ее значение в dst
+func applyEnvInt(name string, dst *int) error {
+	value, ok := os.LookupEnv(name)
+	if !ok {
+		return nil
+	}
+
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
 	if err != nil {
 		return err
 	}
@@ -190,6 +234,9 @@ func (c *config) validate() error {
 	}
 	if c.ShutdownTimeout <= 0 {
 		errs = append(errs, errors.New("shutdown timeout must be positive"))
+	}
+	if c.AccrualConcurrency <= 0 {
+		errs = append(errs, errors.New("accrual concurrency must be positive"))
 	}
 
 	return errors.Join(errs...)

@@ -1,3 +1,3 @@
-DROP TABLE IF EXISTS gophermart.withdrawals;
-DROP TABLE IF EXISTS gophermart.orders;
-DROP TABLE IF EXISTS gophermart.users;
+DROP TABLE IF EXISTS withdrawals;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS users;

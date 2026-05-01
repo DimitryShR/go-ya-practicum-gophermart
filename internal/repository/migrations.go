@@ -19,21 +19,24 @@ const schemaName = "gophermart"
 // Gрименяет SQL-миграции проекта к базе данных
 //
 // Для миграций открывается отдельное подключение
-func RunMigrations(databaseURI string) error {
+func RunMigrations(databaseURI string, local bool) error {
 	migrationSourceURL, err := buildMigrationSourceURL()
 	if err != nil {
 		return err
 	}
 
-	db, err := openMigrationDB(databaseURI)
+	db, err := openMigrationDB(databaseURI, local)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	driver, err := migratepgx.WithInstance(db, &migratepgx.Config{
-		SchemaName: schemaName,
-	})
+	migrateCfg := &migratepgx.Config{}
+	if local {
+		migrateCfg.SchemaName = schemaName
+	}
+
+	driver, err := migratepgx.WithInstance(db, migrateCfg)
 	if err != nil {
 		return fmt.Errorf("create pgx migration driver: %w", err)
 	}
@@ -66,12 +69,15 @@ func buildMigrationSourceURL() (string, error) {
 	return "file://" + filepath.Join(workingDirectory, "migrations"), nil
 }
 
-func openMigrationDB(databaseURI string) (*sql.DB, error) {
+func openMigrationDB(databaseURI string, local bool) (*sql.DB, error) {
 	postgresConfig, err := pgx.ParseConfig(databaseURI)
 	if err != nil {
 		return nil, fmt.Errorf("parse migration database config: %w", err)
 	}
-	postgresConfig.RuntimeParams["search_path"] = schemaName
+
+	if local {
+		postgresConfig.RuntimeParams["search_path"] = schemaName
+	}
 
 	return stdlib.OpenDB(*postgresConfig), nil
 }
